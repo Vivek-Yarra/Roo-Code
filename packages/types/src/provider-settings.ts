@@ -593,7 +593,7 @@ export const MODELS_BY_PROVIDER: Record<
 		label: "Amazon Bedrock",
 		models: Object.keys(bedrockModels),
 	},
-	"claude-code": { id: "claude-code", label: "Claude Code", models: Object.keys(claudeCodeModels) },
+	"claude-code": { id: "claude-code", label: "Claude Code", models: Object.keys(anthropicModels) },
 	deepseek: {
 		id: "deepseek",
 		label: "DeepSeek",

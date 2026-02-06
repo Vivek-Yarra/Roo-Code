@@ -71,11 +71,22 @@ export const claudeCodeModels = {
 		reasoningEffort: "medium",
 		description: "Claude Opus 4.5 - Most capable with thinking",
 	},
+	"claude-opus-4-6": {
+		maxTokens: 128_000, // Overridden to 8k if `enableReasoningEffort` is false.
+		contextWindow: 200_000, // Default 200K, extendable to 1M with beta flag
+		supportsImages: true,
+		supportsPromptCache: true,
+		supportsReasoningEffort: ["disable", "low", "medium", "high"],
+		reasoningEffort: "high",
+		cacheWritesPrice: 6.25, // $6.25 per million tokens
+		cacheReadsPrice: 0.5, // $0.50 per million tokens
+		supportsReasoningBudget: true,
+	},
 } as const satisfies Record<string, ModelInfo>
 
 // Claude Code - Only models that work with Claude Code OAuth tokens
 export type ClaudeCodeModelId = keyof typeof claudeCodeModels
-export const claudeCodeDefaultModelId: ClaudeCodeModelId = "claude-sonnet-4-5"
+export const claudeCodeDefaultModelId: ClaudeCodeModelId = "claude-opus-4-6"
 
 /**
  * Model family patterns for normalization.
