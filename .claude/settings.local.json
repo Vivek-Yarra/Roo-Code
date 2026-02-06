@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(gh auth:*)",
+      "Bash(gh repo view:*)",
+      "Bash(git remote rename:*)",
+      "Bash(git remote add:*)",
+      "Bash(git revert:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh run view:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm --filter roo-cline build:*)",
+      "Bash(pnpm --filter @roo-code/vscode-webview build:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm --filter @roo-code/cloud test:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(gh api:*)"
+    ]
+  }
+}
