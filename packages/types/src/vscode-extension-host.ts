@@ -95,6 +95,7 @@ export interface ExtensionMessage {
 		| "interactionRequired"
 		| "browserSessionUpdate"
 		| "browserSessionNavigate"
+		| "claudeCodeRateLimits"
 		| "customToolsResult"
 		| "modes"
 		| "taskWithAggregatedCosts"
@@ -402,6 +403,7 @@ export type ExtensionState = Pick<
 	remoteControlEnabled: boolean
 	taskSyncEnabled: boolean
 	featureRoomoteControlEnabled: boolean
+	claudeCodeIsAuthenticated?: boolean
 	openAiCodexIsAuthenticated?: boolean
 	debug?: boolean
 }
@@ -529,6 +531,8 @@ export interface WebviewMessage {
 		| "cloudLandingPageSignIn"
 		| "rooCloudSignOut"
 		| "rooCloudManualUrl"
+		| "claudeCodeSignIn"
+		| "claudeCodeSignOut"
 		| "openAiCodexSignIn"
 		| "openAiCodexSignOut"
 		| "switchOrganization"
@@ -583,6 +587,7 @@ export interface WebviewMessage {
 		| "openDebugApiHistory"
 		| "openDebugUiHistory"
 		| "downloadErrorDiagnostics"
+		| "requestClaudeCodeRateLimits"
 		| "requestOpenAiCodexRateLimits"
 		| "refreshCustomTools"
 		| "requestModes"
