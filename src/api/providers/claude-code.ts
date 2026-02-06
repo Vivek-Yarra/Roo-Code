@@ -299,6 +299,10 @@ export class ClaudeCodeHandler implements ApiHandler, SingleCompletionHandler {
 		}
 	}
 
+	isAiSdkProvider(): boolean {
+		return false
+	}
+
 	async countTokens(content: Anthropic.Messages.ContentBlockParam[]): Promise<number> {
 		if (content.length === 0) {
 			return 0
