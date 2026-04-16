@@ -6,7 +6,6 @@ import {
 	type RouterModels,
 	anthropicModels,
 	bedrockModels,
-	cerebrasModels,
 	deepSeekModels,
 	moonshotModels,
 	minimaxModels,
@@ -16,19 +15,15 @@ import {
 	openAiNativeModels,
 	vertexModels,
 	xaiModels,
-	groqModels,
 	vscodeLlmModels,
 	vscodeLlmDefaultModelId,
 	claudeCodeModels,
 	normalizeClaudeCodeModelId,
 	openAiCodexModels,
 	sambaNovaModels,
-	doubaoModels,
 	internationalZAiModels,
 	mainlandZAiModels,
 	fireworksModels,
-	featherlessModels,
-	ioIntelligenceModels,
 	basetenModels,
 	qwenCodeModels,
 	litellmDefaultModelInfo,
@@ -36,6 +31,7 @@ import {
 	BEDROCK_1M_CONTEXT_MODEL_IDS,
 	VERTEX_1M_CONTEXT_MODEL_IDS,
 	isDynamicProvider,
+	isRetiredProvider,
 	getProviderDefaultModelId,
 } from "@roo-code/types"
 
@@ -58,14 +54,16 @@ function getValidatedModelId(
 
 export const useSelectedModel = (apiConfiguration?: ProviderSettings) => {
 	const provider = apiConfiguration?.apiProvider || "anthropic"
-	const openRouterModelId = provider === "openrouter" ? apiConfiguration?.openRouterModelId : undefined
-	const lmStudioModelId = provider === "lmstudio" ? apiConfiguration?.lmStudioModelId : undefined
-	const ollamaModelId = provider === "ollama" ? apiConfiguration?.ollamaModelId : undefined
+	const activeProvider: ProviderName | undefined = isRetiredProvider(provider) ? undefined : provider
+	const dynamicProvider = activeProvider && isDynamicProvider(activeProvider) ? activeProvider : undefined
+	const openRouterModelId = activeProvider === "openrouter" ? apiConfiguration?.openRouterModelId : undefined
+	const lmStudioModelId = activeProvider === "lmstudio" ? apiConfiguration?.lmStudioModelId : undefined
+	const ollamaModelId = activeProvider === "ollama" ? apiConfiguration?.ollamaModelId : undefined
 
 	// Only fetch router models for dynamic providers
-	const shouldFetchRouterModels = isDynamicProvider(provider)
+	const shouldFetchRouterModels = !!dynamicProvider
 	const routerModels = useRouterModels({
-		provider: shouldFetchRouterModels ? provider : undefined,
+		provider: dynamicProvider,
 		enabled: shouldFetchRouterModels,
 	})
 
@@ -75,16 +73,17 @@ export const useSelectedModel = (apiConfiguration?: ProviderSettings) => {
 
 	// Compute readiness only for the data actually needed for the selected provider
 	const needRouterModels = shouldFetchRouterModels
-	const needOpenRouterProviders = provider === "openrouter"
+	const needOpenRouterProviders = activeProvider === "openrouter"
 	const needLmStudio = typeof lmStudioModelId !== "undefined"
 	const needOllama = typeof ollamaModelId !== "undefined"
 
-	const hasValidRouterData = needRouterModels
-		? routerModels.data &&
-			routerModels.data[provider] !== undefined &&
-			typeof routerModels.data[provider] === "object" &&
-			!routerModels.isLoading
-		: true
+	const hasValidRouterData =
+		needRouterModels && dynamicProvider
+			? routerModels.data &&
+				routerModels.data[dynamicProvider] !== undefined &&
+				typeof routerModels.data[dynamicProvider] === "object" &&
+				!routerModels.isLoading
+			: true
 
 	const isReady =
 		(!needLmStudio || typeof lmStudioModels.data !== "undefined") &&
@@ -93,16 +92,16 @@ export const useSelectedModel = (apiConfiguration?: ProviderSettings) => {
 		(!needOpenRouterProviders || typeof openRouterModelProviders.data !== "undefined")
 
 	const { id, info } =
-		apiConfiguration && isReady
+		apiConfiguration && isReady && activeProvider
 			? getSelectedModel({
-					provider,
+					provider: activeProvider,
 					apiConfiguration,
 					routerModels: (routerModels.data || {}) as RouterModels,
 					openRouterModelProviders: (openRouterModelProviders.data || {}) as Record<string, ModelInfo>,
 					lmStudioModels: (lmStudioModels.data || undefined) as ModelRecord | undefined,
 					ollamaModels: (ollamaModels.data || undefined) as ModelRecord | undefined,
 				})
-			: { id: getProviderDefaultModelId(provider), info: undefined }
+			: { id: getProviderDefaultModelId(activeProvider ?? "anthropic"), info: undefined }
 
 	return {
 		provider,
@@ -177,26 +176,6 @@ function getSelectedModel({
 			const info = xaiModels[id as keyof typeof xaiModels]
 			return info ? { id, info } : { id, info: undefined }
 		}
-		case "groq": {
-			const id = apiConfiguration.apiModelId ?? defaultModelId
-			const info = groqModels[id as keyof typeof groqModels]
-			return { id, info }
-		}
-		case "huggingface": {
-			const id = apiConfiguration.huggingFaceModelId ?? "meta-llama/Llama-3.3-70B-Instruct"
-			const info = {
-				maxTokens: 8192,
-				contextWindow: 131072,
-				supportsImages: false,
-				supportsPromptCache: false,
-			}
-			return { id, info }
-		}
-		case "chutes": {
-			const id = getValidatedModelId(apiConfiguration.apiModelId, routerModels.chutes, defaultModelId)
-			const info = routerModels.chutes?.[id]
-			return { id, info }
-		}
 		case "baseten": {
 			const id = apiConfiguration.apiModelId ?? defaultModelId
 			const info = basetenModels[id as keyof typeof basetenModels]
@@ -210,7 +189,7 @@ function getSelectedModel({
 			if (id === "custom-arn") {
 				return {
 					id,
-					info: { maxTokens: 5000, contextWindow: 128_000, supportsPromptCache: false, supportsImages: true },
+					info: { maxTokens: 5000, contextWindow: 128_000, supportsPromptCache: true, supportsImages: true },
 				}
 			}
 
@@ -257,11 +236,6 @@ function getSelectedModel({
 		case "deepseek": {
 			const id = apiConfiguration.apiModelId ?? defaultModelId
 			const info = deepSeekModels[id as keyof typeof deepSeekModels]
-			return { id, info }
-		}
-		case "doubao": {
-			const id = apiConfiguration.apiModelId ?? defaultModelId
-			const info = doubaoModels[id as keyof typeof doubaoModels]
 			return { id, info }
 		}
 		case "moonshot": {
@@ -322,11 +296,6 @@ function getSelectedModel({
 				info: modelInfo ? { ...lMStudioDefaultModelInfo, ...modelInfo } : undefined,
 			}
 		}
-		case "deepinfra": {
-			const id = getValidatedModelId(apiConfiguration.deepInfraModelId, routerModels.deepinfra, defaultModelId)
-			const info = routerModels.deepinfra?.[id]
-			return { id, info }
-		}
 		case "vscode-lm": {
 			const id = apiConfiguration?.vsCodeLmModelSelector
 				? `${apiConfiguration.vsCodeLmModelSelector.vendor}/${apiConfiguration.vsCodeLmModelSelector.family}`
@@ -343,11 +312,6 @@ function getSelectedModel({
 			const info = claudeCodeModels[normalizedId]
 			return { id: normalizedId, info: { ...openAiModelInfoSaneDefaults, ...info } }
 		}
-		case "cerebras": {
-			const id = apiConfiguration.apiModelId ?? defaultModelId
-			const info = cerebrasModels[id as keyof typeof cerebrasModels]
-			return { id, info }
-		}
 		case "sambanova": {
 			const id = apiConfiguration.apiModelId ?? defaultModelId
 			const info = sambaNovaModels[id as keyof typeof sambaNovaModels]
@@ -358,24 +322,14 @@ function getSelectedModel({
 			const info = fireworksModels[id as keyof typeof fireworksModels]
 			return { id, info }
 		}
-		case "featherless": {
-			const id = apiConfiguration.apiModelId ?? defaultModelId
-			const info = featherlessModels[id as keyof typeof featherlessModels]
-			return { id, info }
-		}
-		case "io-intelligence": {
-			const id = getValidatedModelId(
-				apiConfiguration.ioIntelligenceModelId,
-				routerModels["io-intelligence"],
-				defaultModelId,
-			)
-			const info =
-				routerModels["io-intelligence"]?.[id] ?? ioIntelligenceModels[id as keyof typeof ioIntelligenceModels]
-			return { id, info }
-		}
 		case "roo": {
 			const id = getValidatedModelId(apiConfiguration.apiModelId, routerModels.roo, defaultModelId)
 			const info = routerModels.roo?.[id]
+			return { id, info }
+		}
+		case "poe": {
+			const id = apiConfiguration.apiModelId ?? defaultModelId
+			const info = routerModels.poe?.[id]
 			return { id, info }
 		}
 		case "qwen-code": {
@@ -407,11 +361,14 @@ function getSelectedModel({
 			// Apply 1M context beta tier pricing for supported Claude 4 models
 			if (
 				provider === "anthropic" &&
-				(id === "claude-sonnet-4-20250514" || id === "claude-sonnet-4-5" || id === "claude-opus-4-6") &&
+				(id === "claude-sonnet-4-20250514" ||
+					id === "claude-sonnet-4-5" ||
+					id === "claude-sonnet-4-6" ||
+					id === "claude-opus-4-6") &&
 				apiConfiguration.anthropicBeta1MContext &&
 				baseInfo
 			) {
-				// Type assertion since we know claude-sonnet-4-20250514 and claude-sonnet-4-5 have tiers
+				// Type assertion since supported Claude 4 models include 1M context pricing tiers.
 				const modelWithTiers = baseInfo as typeof baseInfo & {
 					tiers?: Array<{
 						contextWindow: number

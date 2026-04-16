@@ -52,9 +52,6 @@ interface ChatTextAreaProps {
 	// Edit mode props
 	isEditMode?: boolean
 	onCancel?: () => void
-	// Browser session status
-	isBrowserSessionActive?: boolean
-	showBrowserDockToggle?: boolean
 	// Stop/Queue functionality
 	isStreaming?: boolean
 	onStop?: () => void
@@ -79,8 +76,6 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			modeShortcutText,
 			isEditMode = false,
 			onCancel,
-			isBrowserSessionActive = false,
-			showBrowserDockToggle = false,
 			isStreaming = false,
 			onStop,
 			onEnqueueMessage,
@@ -523,7 +518,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 					const charAfterIsWhitespace =
 						charAfterCursor === " " || charAfterCursor === "\n" || charAfterCursor === "\r\n"
 
-					// Checks if char before cusor is whitespace after a mention.
+					// Checks if char before cursor is whitespace after a mention.
 					if (
 						charBeforeIsWhitespace &&
 						// "$" is added to ensure the match occurs at the end of the string.
@@ -1354,12 +1349,6 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						)}
 						{!isEditMode ? <IndexingStatusBadge /> : null}
 						{!isEditMode && cloudUserInfo && <CloudAccountSwitcher />}
-						{/* keep props referenced after moving browser button */}
-						<div
-							className="hidden"
-							data-browser-session-active={isBrowserSessionActive}
-							data-show-browser-dock-toggle={showBrowserDockToggle}
-						/>
 					</div>
 				</div>
 			</div>

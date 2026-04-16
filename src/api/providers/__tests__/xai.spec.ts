@@ -1,731 +1,298 @@
-// npx vitest run api/providers/__tests__/xai.spec.ts
+// npx vitest api/providers/__tests__/xai.spec.ts
 
-// Use vi.hoisted to define mock functions that can be referenced in hoisted vi.mock() calls
-const { mockStreamText, mockGenerateText } = vi.hoisted(() => ({
-	mockStreamText: vi.fn(),
-	mockGenerateText: vi.fn(),
+// Mock TelemetryService - must come before other imports
+const mockCaptureException = vitest.hoisted(() => vitest.fn())
+vitest.mock("@roo-code/telemetry", () => ({
+	TelemetryService: {
+		instance: {
+			captureException: mockCaptureException,
+		},
+	},
 }))
 
-vi.mock("ai", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("ai")>()
+const mockResponsesCreate = vitest.fn()
+
+vitest.mock("openai", () => {
+	const mockConstructor = vitest.fn()
+
 	return {
-		...actual,
-		streamText: mockStreamText,
-		generateText: mockGenerateText,
+		__esModule: true,
+		default: mockConstructor.mockImplementation(() => ({
+			responses: { create: mockResponsesCreate },
+		})),
 	}
 })
 
-vi.mock("@ai-sdk/xai", () => ({
-	createXai: vi.fn(() => {
-		// Return a function that returns a mock language model
-		return vi.fn(() => ({
-			modelId: "grok-code-fast-1",
-			provider: "xai",
-		}))
-	}),
-}))
-
+import OpenAI from "openai"
 import type { Anthropic } from "@anthropic-ai/sdk"
 
-import { xaiDefaultModelId, xaiModels, type XAIModelId } from "@roo-code/types"
-
-import type { ApiHandlerOptions } from "../../../shared/api"
+import { xaiDefaultModelId, xaiModels } from "@roo-code/types"
 
 import { XAIHandler } from "../xai"
 
+// Helper to create an async iterable from events
+function mockStream(events: any[]) {
+	return {
+		[Symbol.asyncIterator]: () => {
+			let index = 0
+			return {
+				async next() {
+					if (index < events.length) {
+						return { done: false, value: events[index++] }
+					}
+					return { done: true, value: undefined }
+				},
+			}
+		},
+	}
+}
+
 describe("XAIHandler", () => {
 	let handler: XAIHandler
-	let mockOptions: ApiHandlerOptions
 
 	beforeEach(() => {
-		mockOptions = {
-			xaiApiKey: "test-xai-api-key",
-			apiModelId: "grok-code-fast-1",
-		}
-		handler = new XAIHandler(mockOptions)
 		vi.clearAllMocks()
+		mockResponsesCreate.mockClear()
+		mockCaptureException.mockClear()
+		handler = new XAIHandler({})
 	})
 
-	describe("constructor", () => {
-		it("should initialize with provided options", () => {
-			expect(handler).toBeInstanceOf(XAIHandler)
-			expect(handler.getModel().id).toBe(mockOptions.apiModelId)
-		})
-
-		it("should use default model ID if not provided", () => {
-			const handlerWithoutModel = new XAIHandler({
-				...mockOptions,
-				apiModelId: undefined,
-			})
-			expect(handlerWithoutModel.getModel().id).toBe(xaiDefaultModelId)
-		})
+	it("should use the correct X.AI base URL", () => {
+		expect(OpenAI).toHaveBeenCalledWith(
+			expect.objectContaining({
+				baseURL: "https://api.x.ai/v1",
+			}),
+		)
 	})
 
-	describe("getModel", () => {
-		it("should return default model when no model is specified", () => {
-			const handlerWithoutModel = new XAIHandler({
-				xaiApiKey: "test-xai-api-key",
-			})
-			const model = handlerWithoutModel.getModel()
-			expect(model.id).toBe(xaiDefaultModelId)
-			expect(model.info).toEqual(xaiModels[xaiDefaultModelId])
-		})
+	it("should use the provided API key", () => {
+		vi.clearAllMocks()
+		const xaiApiKey = "test-api-key"
+		new XAIHandler({ xaiApiKey })
+		expect(OpenAI).toHaveBeenCalledWith(
+			expect.objectContaining({
+				apiKey: xaiApiKey,
+			}),
+		)
+	})
 
-		it("should return specified model when valid model is provided", () => {
-			const testModelId: XAIModelId = "grok-3"
-			const handlerWithModel = new XAIHandler({
-				apiModelId: testModelId,
-				xaiApiKey: "test-xai-api-key",
-			})
-			const model = handlerWithModel.getModel()
-			expect(model.id).toBe(testModelId)
-			expect(model.info).toEqual(xaiModels[testModelId])
-		})
+	it("should return default model when no model is specified", () => {
+		const model = handler.getModel()
+		expect(model.id).toBe(xaiDefaultModelId)
+		expect(model.info).toEqual(xaiModels[xaiDefaultModelId])
+	})
 
-		it("should return grok-3-mini model with correct configuration", () => {
-			const testModelId: XAIModelId = "grok-3-mini"
-			const handlerWithModel = new XAIHandler({
-				apiModelId: testModelId,
-				xaiApiKey: "test-xai-api-key",
-			})
-			const model = handlerWithModel.getModel()
-			expect(model.id).toBe(testModelId)
-			expect(model.info).toEqual(
-				expect.objectContaining({
-					maxTokens: 8192,
-					contextWindow: 131072,
-					supportsImages: true,
-					supportsPromptCache: true,
-					inputPrice: 0.3,
-					outputPrice: 0.5,
-				}),
-			)
-		})
+	it("should return specified model when valid model is provided", () => {
+		const testModelId = "grok-3"
+		const handlerWithModel = new XAIHandler({ apiModelId: testModelId })
+		const model = handlerWithModel.getModel()
+		expect(model.id).toBe(testModelId)
+		expect(model.info).toEqual(xaiModels[testModelId])
+	})
 
-		it("should return grok-4-0709 model with correct configuration", () => {
-			const testModelId: XAIModelId = "grok-4-0709"
-			const handlerWithModel = new XAIHandler({
-				apiModelId: testModelId,
-				xaiApiKey: "test-xai-api-key",
-			})
-			const model = handlerWithModel.getModel()
-			expect(model.id).toBe(testModelId)
-			expect(model.info).toEqual(
-				expect.objectContaining({
-					maxTokens: 8192,
-					contextWindow: 256_000,
-					supportsImages: true,
-					supportsPromptCache: true,
-					inputPrice: 3.0,
-					outputPrice: 15.0,
-				}),
-			)
-		})
+	it("should use Responses API (client.responses.create)", async () => {
+		mockResponsesCreate.mockResolvedValueOnce(mockStream([]))
 
-		it("should fall back to default model for invalid model ID", () => {
-			const handlerWithInvalidModel = new XAIHandler({
-				...mockOptions,
-				apiModelId: "invalid-model",
-			})
-			const model = handlerWithInvalidModel.getModel()
-			expect(model.id).toBe(xaiDefaultModelId)
-			expect(model.info).toBe(xaiModels[xaiDefaultModelId])
-		})
+		const stream = handler.createMessage("test prompt", [])
+		await stream.next()
 
-		it("should include model parameters from getModelParams", () => {
-			const model = handler.getModel()
-			expect(model).toHaveProperty("temperature")
-			expect(model).toHaveProperty("maxTokens")
+		expect(mockResponsesCreate).toHaveBeenCalledWith(
+			expect.objectContaining({
+				model: xaiDefaultModelId,
+				instructions: "test prompt",
+				stream: true,
+				store: false,
+				include: ["reasoning.encrypted_content"],
+			}),
+		)
+	})
+
+	it("createMessage should yield text content from stream", async () => {
+		const testContent = "This is test content"
+
+		mockResponsesCreate.mockResolvedValueOnce(
+			mockStream([{ type: "response.output_text.delta", delta: testContent }]),
+		)
+
+		const stream = handler.createMessage("system prompt", [])
+		const firstChunk = await stream.next()
+
+		expect(firstChunk.done).toBe(false)
+		expect(firstChunk.value).toEqual({
+			type: "text",
+			text: testContent,
 		})
 	})
 
-	describe("createMessage", () => {
-		const systemPrompt = "You are a helpful assistant."
-		const messages: Anthropic.Messages.MessageParam[] = [
-			{
-				role: "user",
-				content: [
-					{
-						type: "text" as const,
-						text: "Hello!",
+	it("createMessage should yield reasoning content from stream", async () => {
+		const testReasoning = "Test reasoning content"
+
+		mockResponsesCreate.mockResolvedValueOnce(
+			mockStream([{ type: "response.reasoning_text.delta", delta: testReasoning }]),
+		)
+
+		const stream = handler.createMessage("system prompt", [])
+		const firstChunk = await stream.next()
+
+		expect(firstChunk.done).toBe(false)
+		expect(firstChunk.value).toEqual({
+			type: "reasoning",
+			text: testReasoning,
+		})
+	})
+
+	it("createMessage should yield usage data from response.completed", async () => {
+		mockResponsesCreate.mockResolvedValueOnce(
+			mockStream([
+				{
+					type: "response.completed",
+					response: {
+						usage: {
+							input_tokens: 10,
+							output_tokens: 20,
+							input_tokens_details: { cached_tokens: 5 },
+							output_tokens_details: { reasoning_tokens: 8 },
+						},
 					},
-				],
-			},
-		]
+				},
+			]),
+		)
 
-		it("should handle streaming responses", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Test response from xAI" }
-			}
+		const stream = handler.createMessage("system prompt", [])
+		const firstChunk = await stream.next()
 
-			const mockUsage = Promise.resolve({
-				inputTokens: 10,
-				outputTokens: 5,
-			})
-
-			const mockProviderMetadata = Promise.resolve({})
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: mockUsage,
-				providerMetadata: mockProviderMetadata,
-			})
-
-			const stream = handler.createMessage(systemPrompt, messages)
-			const chunks: any[] = []
-			for await (const chunk of stream) {
-				chunks.push(chunk)
-			}
-
-			expect(chunks.length).toBeGreaterThan(0)
-			const textChunks = chunks.filter((chunk) => chunk.type === "text")
-			expect(textChunks).toHaveLength(1)
-			expect(textChunks[0].text).toBe("Test response from xAI")
-		})
-
-		it("should include usage information", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Test response" }
-			}
-
-			const mockUsage = Promise.resolve({
+		expect(firstChunk.done).toBe(false)
+		expect(firstChunk.value).toEqual(
+			expect.objectContaining({
+				type: "usage",
 				inputTokens: 10,
 				outputTokens: 20,
-			})
+				cacheReadTokens: 5,
+				reasoningTokens: 8,
+			}),
+		)
+	})
 
-			const mockProviderMetadata = Promise.resolve({})
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: mockUsage,
-				providerMetadata: mockProviderMetadata,
-			})
-
-			const stream = handler.createMessage(systemPrompt, messages)
-			const chunks: any[] = []
-			for await (const chunk of stream) {
-				chunks.push(chunk)
-			}
-
-			const usageChunks = chunks.filter((chunk) => chunk.type === "usage")
-			expect(usageChunks.length).toBeGreaterThan(0)
-			expect(usageChunks[0].inputTokens).toBe(10)
-			expect(usageChunks[0].outputTokens).toBe(20)
-		})
-
-		it("should handle cached tokens in usage data from providerMetadata", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Test response" }
-			}
-
-			const mockUsage = Promise.resolve({
-				inputTokens: 100,
-				outputTokens: 50,
-			})
-
-			// xAI provides cache metrics via providerMetadata for supported models
-			const mockProviderMetadata = Promise.resolve({
-				xai: {
-					cachedPromptTokens: 30,
+	it("createMessage should yield tool_call from output_item.done", async () => {
+		mockResponsesCreate.mockResolvedValueOnce(
+			mockStream([
+				{
+					type: "response.output_item.done",
+					item: {
+						type: "function_call",
+						call_id: "call_123",
+						name: "test_tool",
+						arguments: '{"arg1":"value"}',
+					},
 				},
-			})
+			]),
+		)
 
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: mockUsage,
-				providerMetadata: mockProviderMetadata,
-			})
+		const stream = handler.createMessage("system prompt", [])
+		const firstChunk = await stream.next()
 
-			const stream = handler.createMessage(systemPrompt, messages)
-			const chunks: any[] = []
-			for await (const chunk of stream) {
-				chunks.push(chunk)
-			}
-
-			const usageChunks = chunks.filter((chunk) => chunk.type === "usage")
-			expect(usageChunks.length).toBeGreaterThan(0)
-			expect(usageChunks[0].inputTokens).toBe(100)
-			expect(usageChunks[0].outputTokens).toBe(50)
-			expect(usageChunks[0].cacheReadTokens).toBe(30)
-		})
-
-		it("should handle usage with details.cachedInputTokens when providerMetadata is not available", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Test response" }
-			}
-
-			const mockUsage = Promise.resolve({
-				inputTokens: 100,
-				outputTokens: 50,
-				details: {
-					cachedInputTokens: 25,
-				},
-			})
-
-			const mockProviderMetadata = Promise.resolve({})
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: mockUsage,
-				providerMetadata: mockProviderMetadata,
-			})
-
-			const stream = handler.createMessage(systemPrompt, messages)
-			const chunks: any[] = []
-			for await (const chunk of stream) {
-				chunks.push(chunk)
-			}
-
-			const usageChunks = chunks.filter((chunk) => chunk.type === "usage")
-			expect(usageChunks.length).toBeGreaterThan(0)
-			expect(usageChunks[0].cacheReadTokens).toBe(25)
-			expect(usageChunks[0].cacheWriteTokens).toBeUndefined()
-		})
-
-		it("should pass correct temperature (0 default) to streamText", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Test" }
-			}
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
-				providerMetadata: Promise.resolve({}),
-			})
-
-			const handlerWithDefaultTemp = new XAIHandler({
-				xaiApiKey: "test-key",
-				apiModelId: "grok-code-fast-1",
-			})
-
-			const stream = handlerWithDefaultTemp.createMessage(systemPrompt, messages)
-			for await (const _ of stream) {
-				// consume stream
-			}
-
-			expect(mockStreamText).toHaveBeenCalledWith(
-				expect.objectContaining({
-					temperature: 0,
-				}),
-			)
-		})
-
-		it("should use user-specified temperature over default", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Test" }
-			}
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
-				providerMetadata: Promise.resolve({}),
-			})
-
-			const handlerWithCustomTemp = new XAIHandler({
-				xaiApiKey: "test-key",
-				apiModelId: "grok-3",
-				modelTemperature: 0.7,
-			})
-
-			const stream = handlerWithCustomTemp.createMessage(systemPrompt, messages)
-			for await (const _ of stream) {
-				// consume stream
-			}
-
-			// User-specified temperature should take precedence over everything
-			expect(mockStreamText).toHaveBeenCalledWith(
-				expect.objectContaining({
-					temperature: 0.7,
-				}),
-			)
-		})
-
-		it("should handle stream with multiple chunks", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Hello" }
-				yield { type: "text-delta", text: " world" }
-			}
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: Promise.resolve({ inputTokens: 5, outputTokens: 10 }),
-				providerMetadata: Promise.resolve({}),
-			})
-
-			const stream = handler.createMessage(systemPrompt, messages)
-			const chunks: any[] = []
-			for await (const chunk of stream) {
-				chunks.push(chunk)
-			}
-
-			const textChunks = chunks.filter((c) => c.type === "text")
-			expect(textChunks[0]).toEqual({ type: "text", text: "Hello" })
-			expect(textChunks[1]).toEqual({ type: "text", text: " world" })
-
-			const usageChunks = chunks.filter((c) => c.type === "usage")
-			expect(usageChunks[0]).toMatchObject({ type: "usage", inputTokens: 5, outputTokens: 10 })
-		})
-
-		it("should handle reasoning content from stream", async () => {
-			async function* mockFullStream() {
-				yield { type: "reasoning-delta", text: "Let me think about this..." }
-				yield { type: "text-delta", text: "Here is my answer" }
-			}
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: Promise.resolve({ inputTokens: 10, outputTokens: 20 }),
-				providerMetadata: Promise.resolve({}),
-			})
-
-			const stream = handler.createMessage(systemPrompt, messages)
-			const chunks: any[] = []
-			for await (const chunk of stream) {
-				chunks.push(chunk)
-			}
-
-			const reasoningChunks = chunks.filter((c) => c.type === "reasoning")
-			expect(reasoningChunks).toHaveLength(1)
-			expect(reasoningChunks[0].text).toBe("Let me think about this...")
-
-			const textChunks = chunks.filter((c) => c.type === "text")
-			expect(textChunks).toHaveLength(1)
-			expect(textChunks[0].text).toBe("Here is my answer")
-		})
-
-		it("should handle errors during streaming", async () => {
-			const mockError = new Error("API error")
-			;(mockError as any).name = "AI_APICallError"
-			;(mockError as any).status = 500
-
-			async function* mockFullStream(): AsyncGenerator<never> {
-				// This yield is unreachable but needed to satisfy the require-yield lint rule
-				yield undefined as never
-				throw mockError
-			}
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
-				providerMetadata: Promise.resolve({}),
-			})
-
-			const stream = handler.createMessage(systemPrompt, messages)
-
-			await expect(async () => {
-				for await (const _ of stream) {
-					// consume stream
-				}
-			}).rejects.toThrow("xAI")
+		expect(firstChunk.done).toBe(false)
+		expect(firstChunk.value).toEqual({
+			type: "tool_call",
+			id: "call_123",
+			name: "test_tool",
+			arguments: '{"arg1":"value"}',
 		})
 	})
 
-	describe("completePrompt", () => {
-		it("should complete a prompt using generateText", async () => {
-			mockGenerateText.mockResolvedValue({
-				text: "Test completion from xAI",
-			})
-
-			const result = await handler.completePrompt("Test prompt")
-
-			expect(result).toBe("Test completion from xAI")
-			expect(mockGenerateText).toHaveBeenCalledWith(
-				expect.objectContaining({
-					prompt: "Test prompt",
-				}),
-			)
-		})
-
-		it("should use default temperature in completePrompt", async () => {
-			mockGenerateText.mockResolvedValue({
-				text: "Test completion",
-			})
-
-			await handler.completePrompt("Test prompt")
-
-			expect(mockGenerateText).toHaveBeenCalledWith(
-				expect.objectContaining({
-					temperature: 0,
-				}),
-			)
-		})
-
-		it("should handle errors in completePrompt", async () => {
-			const mockError = new Error("API error")
-			;(mockError as any).name = "AI_APICallError"
-			mockGenerateText.mockRejectedValue(mockError)
-
-			await expect(handler.completePrompt("Test prompt")).rejects.toThrow("xAI")
-		})
-	})
-
-	describe("processUsageMetrics", () => {
-		it("should correctly process usage metrics including cache information from providerMetadata", () => {
-			class TestXAIHandler extends XAIHandler {
-				public testProcessUsageMetrics(usage: any, providerMetadata?: any) {
-					return this.processUsageMetrics(usage, providerMetadata)
-				}
-			}
-
-			const testHandler = new TestXAIHandler(mockOptions)
-
-			const usage = {
-				inputTokens: 100,
-				outputTokens: 50,
-			}
-
-			const providerMetadata = {
-				xai: {
-					cachedPromptTokens: 20,
-				},
-			}
-
-			const result = testHandler.testProcessUsageMetrics(usage, providerMetadata)
-
-			expect(result.type).toBe("usage")
-			expect(result.inputTokens).toBe(100)
-			expect(result.outputTokens).toBe(50)
-			expect(result.cacheReadTokens).toBe(20)
-			// xAI doesn't report cache write tokens separately
-			expect(result.cacheWriteTokens).toBeUndefined()
-		})
-
-		it("should handle missing cache metrics gracefully", () => {
-			class TestXAIHandler extends XAIHandler {
-				public testProcessUsageMetrics(usage: any, providerMetadata?: any) {
-					return this.processUsageMetrics(usage, providerMetadata)
-				}
-			}
-
-			const testHandler = new TestXAIHandler(mockOptions)
-
-			const usage = {
-				inputTokens: 100,
-				outputTokens: 50,
-			}
-
-			const result = testHandler.testProcessUsageMetrics(usage)
-
-			expect(result.type).toBe("usage")
-			expect(result.inputTokens).toBe(100)
-			expect(result.outputTokens).toBe(50)
-			expect(result.cacheWriteTokens).toBeUndefined()
-			expect(result.cacheReadTokens).toBeUndefined()
-		})
-
-		it("should include reasoning tokens when provided", () => {
-			class TestXAIHandler extends XAIHandler {
-				public testProcessUsageMetrics(usage: any, providerMetadata?: any) {
-					return this.processUsageMetrics(usage, providerMetadata)
-				}
-			}
-
-			const testHandler = new TestXAIHandler(mockOptions)
-
-			const usage = {
-				inputTokens: 100,
-				outputTokens: 50,
-				details: {
-					reasoningTokens: 30,
-				},
-			}
-
-			const result = testHandler.testProcessUsageMetrics(usage)
-
-			expect(result.reasoningTokens).toBe(30)
-		})
-	})
-
-	describe("tool handling", () => {
-		const systemPrompt = "You are a helpful assistant."
-		const messages: Anthropic.Messages.MessageParam[] = [
+	it("should include tools in Responses API format", async () => {
+		const testTools = [
 			{
-				role: "user",
-				content: [{ type: "text" as const, text: "Hello!" }],
+				type: "function" as const,
+				function: {
+					name: "test_tool",
+					description: "A test tool",
+					parameters: { type: "object", properties: { arg1: { type: "string" } }, required: ["arg1"] },
+				},
 			},
 		]
 
-		it("should handle tool calls in streaming", async () => {
-			async function* mockFullStream() {
-				yield {
-					type: "tool-input-start",
-					id: "tool-call-1",
-					toolName: "read_file",
-				}
-				yield {
-					type: "tool-input-delta",
-					id: "tool-call-1",
-					delta: '{"path":"test.ts"}',
-				}
-				yield {
-					type: "tool-input-end",
-					id: "tool-call-1",
-				}
-			}
+		mockResponsesCreate.mockResolvedValueOnce(mockStream([]))
 
-			const mockUsage = Promise.resolve({
-				inputTokens: 10,
-				outputTokens: 5,
-			})
+		const stream = handler.createMessage("test prompt", [], {
+			taskId: "test-task-id",
+			tools: testTools,
+		})
+		await stream.next()
 
-			const mockProviderMetadata = Promise.resolve({})
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: mockUsage,
-				providerMetadata: mockProviderMetadata,
-			})
-
-			const stream = handler.createMessage(systemPrompt, messages, {
-				taskId: "test-task",
+		expect(mockResponsesCreate).toHaveBeenCalledWith(
+			expect.objectContaining({
 				tools: [
-					{
+					expect.objectContaining({
 						type: "function",
-						function: {
-							name: "read_file",
-							description: "Read a file",
-							parameters: {
-								type: "object",
-								properties: { path: { type: "string" } },
-								required: ["path"],
-							},
-						},
-					},
-				],
-			})
-
-			const chunks: any[] = []
-			for await (const chunk of stream) {
-				chunks.push(chunk)
-			}
-
-			const toolCallStartChunks = chunks.filter((c) => c.type === "tool_call_start")
-			const toolCallDeltaChunks = chunks.filter((c) => c.type === "tool_call_delta")
-			const toolCallEndChunks = chunks.filter((c) => c.type === "tool_call_end")
-
-			expect(toolCallStartChunks.length).toBe(1)
-			expect(toolCallStartChunks[0].id).toBe("tool-call-1")
-			expect(toolCallStartChunks[0].name).toBe("read_file")
-
-			expect(toolCallDeltaChunks.length).toBe(1)
-			expect(toolCallDeltaChunks[0].delta).toBe('{"path":"test.ts"}')
-
-			expect(toolCallEndChunks.length).toBe(1)
-			expect(toolCallEndChunks[0].id).toBe("tool-call-1")
-		})
-
-		it("should ignore tool-call events to prevent duplicate tools in UI", async () => {
-			async function* mockFullStream() {
-				yield {
-					type: "tool-call",
-					toolCallId: "tool-call-1",
-					toolName: "read_file",
-					input: { path: "test.ts" },
-				}
-			}
-
-			const mockUsage = Promise.resolve({
-				inputTokens: 10,
-				outputTokens: 5,
-			})
-
-			const mockProviderMetadata = Promise.resolve({})
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: mockUsage,
-				providerMetadata: mockProviderMetadata,
-			})
-
-			const stream = handler.createMessage(systemPrompt, messages)
-			const chunks: any[] = []
-			for await (const chunk of stream) {
-				chunks.push(chunk)
-			}
-
-			// tool-call events should be ignored (only tool-input-start/delta/end are processed)
-			const toolCallChunks = chunks.filter(
-				(c) => c.type === "tool_call_start" || c.type === "tool_call_delta" || c.type === "tool_call_end",
-			)
-			expect(toolCallChunks.length).toBe(0)
-		})
-
-		it("should pass tools to streamText when provided", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Test" }
-			}
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
-				providerMetadata: Promise.resolve({}),
-			})
-
-			const testTools = [
-				{
-					type: "function" as const,
-					function: {
 						name: "test_tool",
 						description: "A test tool",
-						parameters: {
-							type: "object",
-							properties: {
-								arg1: { type: "string", description: "First argument" },
-							},
-							required: ["arg1"],
-						},
-					},
-				},
-			]
-
-			const stream = handler.createMessage(systemPrompt, messages, {
-				taskId: "test-task",
-				tools: testTools,
+						strict: true,
+					}),
+				],
 				tool_choice: "auto",
-			})
-
-			for await (const _ of stream) {
-				// consume stream
-			}
-
-			expect(mockStreamText).toHaveBeenCalledWith(
-				expect.objectContaining({
-					tools: expect.any(Object),
-					toolChoice: "auto",
-				}),
-			)
-		})
+				parallel_tool_calls: true,
+			}),
+		)
 	})
 
-	describe("reasoning effort (mini models)", () => {
-		it("should include reasoning effort for grok-3-mini model", async () => {
-			async function* mockFullStream() {
-				yield { type: "text-delta", text: "Test" }
-			}
-
-			mockStreamText.mockReturnValue({
-				fullStream: mockFullStream(),
-				usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
-				providerMetadata: Promise.resolve({}),
-			})
-
-			const miniModelHandler = new XAIHandler({
-				xaiApiKey: "test-key",
-				apiModelId: "grok-3-mini",
-				reasoningEffort: "high",
-			})
-
-			const stream = miniModelHandler.createMessage("test prompt", [])
-			for await (const _ of stream) {
-				// consume stream
-			}
-
-			// Check that provider options are passed for reasoning
-			expect(mockStreamText).toHaveBeenCalledWith(
-				expect.objectContaining({
-					providerOptions: expect.any(Object),
-				}),
-			)
+	it("completePrompt should return text from Responses API", async () => {
+		const expectedResponse = "This is a test response"
+		mockResponsesCreate.mockResolvedValueOnce({
+			output_text: expectedResponse,
 		})
+
+		const result = await handler.completePrompt("test prompt")
+		expect(result).toBe(expectedResponse)
+	})
+
+	it("should handle errors in completePrompt", async () => {
+		const errorMessage = "API error"
+		mockResponsesCreate.mockRejectedValueOnce(new Error(errorMessage))
+
+		await expect(handler.completePrompt("test prompt")).rejects.toThrow(`xAI completion error: ${errorMessage}`)
+	})
+
+	it("should include reasoning_effort for mini models", async () => {
+		const miniModelHandler = new XAIHandler({
+			apiModelId: "grok-3-mini",
+			reasoningEffort: "high",
+		})
+
+		mockResponsesCreate.mockResolvedValueOnce(mockStream([]))
+
+		const stream = miniModelHandler.createMessage("test prompt", [])
+		await stream.next()
+
+		expect(mockResponsesCreate).toHaveBeenCalledWith(
+			expect.objectContaining({
+				reasoning: expect.objectContaining({
+					reasoning_effort: "high",
+				}),
+			}),
+		)
+	})
+
+	it("should not include reasoning for non-mini models", async () => {
+		const regularHandler = new XAIHandler({
+			apiModelId: "grok-3",
+			reasoningEffort: "high",
+		})
+
+		mockResponsesCreate.mockResolvedValueOnce(mockStream([]))
+
+		const stream = regularHandler.createMessage("test prompt", [])
+		await stream.next()
+
+		const callArgs = mockResponsesCreate.mock.calls[mockResponsesCreate.mock.calls.length - 1][0]
+		expect(callArgs).not.toHaveProperty("reasoning")
+	})
+
+	it("should handle errors in createMessage", async () => {
+		const errorMessage = "Stream error"
+		mockResponsesCreate.mockRejectedValueOnce(new Error(errorMessage))
+
+		const stream = handler.createMessage("test prompt", [])
+		await expect(stream.next()).rejects.toThrow(`xAI completion error: ${errorMessage}`)
 	})
 })

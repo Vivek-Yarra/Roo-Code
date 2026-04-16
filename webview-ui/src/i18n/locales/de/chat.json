@@ -25,14 +25,15 @@
 		"sharingDisabledByOrganization": "Freigabe von der Organisation deaktiviert",
 		"shareSuccessOrganization": "Organisationslink in die Zwischenablage kopiert",
 		"shareSuccessPublic": "Öffentlicher Link in die Zwischenablage kopiert",
-		"openInCloud": "Aufgabe in Roo Code Cloud öffnen",
-		"openInCloudIntro": "Überwache oder interagiere mit Roo von überall aus. Scanne, klicke oder kopiere zum Öffnen.",
 		"openApiHistory": "API-Verlauf öffnen",
 		"openUiHistory": "UI-Verlauf öffnen",
 		"backToParentTask": "Übergeordnete Aufgabe"
 	},
 	"unpin": "Lösen von oben",
 	"pin": "Anheften",
+	"fileChangesInConversation": {
+		"header": "{{count}} Datei(en) in dieser Unterhaltung geändert"
+	},
 	"tokenProgress": {
 		"availableSpace": "Verfügbarer Speicher: {{amount}} Tokens",
 		"tokensUsed": "Verwendete Tokens: {{used}} von {{total}}",
@@ -220,7 +221,8 @@
 		"wantsToViewTopLevelOutsideWorkspace": "Roo möchte die Dateien auf oberster Ebene in diesem Verzeichnis (außerhalb des Arbeitsbereichs) anzeigen",
 		"didViewTopLevelOutsideWorkspace": "Roo hat die Dateien auf oberster Ebene in diesem Verzeichnis (außerhalb des Arbeitsbereichs) angezeigt",
 		"wantsToViewRecursiveOutsideWorkspace": "Roo möchte rekursiv alle Dateien in diesem Verzeichnis (außerhalb des Arbeitsbereichs) anzeigen",
-		"didViewRecursiveOutsideWorkspace": "Roo hat rekursiv alle Dateien in diesem Verzeichnis (außerhalb des Arbeitsbereichs) angezeigt"
+		"didViewRecursiveOutsideWorkspace": "Roo hat rekursiv alle Dateien in diesem Verzeichnis (außerhalb des Arbeitsbereichs) angezeigt",
+		"wantsToViewMultipleDirectories": "Roo möchte mehrere Verzeichnisse anzeigen"
 	},
 	"commandOutput": "Befehlsausgabe",
 	"commandExecution": {
@@ -346,59 +348,23 @@
 		},
 		"release": {
 			"heading": "Was ist neu:",
-			"claudeOpus": "Claude Opus 4.6: Jetzt über alle Provider verfügbar—Roo Code Router, Anthropic, AWS Bedrock, Google Vertex und OpenRouter—mit Anthropics fähigstem Modell auf deiner bevorzugten Plattform.",
-			"gptCodex": "GPT-5.3-Codex: OpenAIs neuestes Coding-Modell wird nun im OpenAI - ChatGPT Provider unterstützt und liefert hochmoderne Code-Generierung und Verständnis."
+			"gpt54": "Poe-Anbieter: Poe als KI-Anbieter hinzugefügt, damit du direkt in Roo Code auf Poe-Modelle zugreifen kannst.",
+			"slashSkills": "xAI- und MiniMax-Verbesserungen: Den xAI-Anbieter auf die Responses API migriert, wiederverwendbare Transformations-Utilities hinzugefügt, Grok-4.20-Standards aktualisiert und MiniMax-Modelllisten sowie die Handhabung des Kontextfensters für eine zuverlässigere Einrichtung korrigiert.",
+			"geminiPro": "Gemini 3.1 Pro Unterstützung: Gemini 3.1 Pro wurde als Modell hinzugefügt und als Standard-Gemini-Modell für bessere Leistung festgelegt.",
+			"cliNdjson": "CLI NDJSON-Protokoll: Neues NDJSON-stdin-Protokoll, List-Unterbefehle und modularisierter Run-Befehl für flexiblere CLI-Workflows.",
+			"cliRelease": "CLI v0.1.0: Das Roo Code CLI erreicht seine erste offizielle Veröffentlichung mit einer stabilen Befehlsoberfläche."
 		},
 		"cloudAgents": {
 			"heading": "Neu in der Cloud:",
 			"specialized": "Wir stellen <bold>Explainer</bold>, <bold>Planner</bold> und <bold>Coder</bold> vor - drei spezialisierte Cloud-Agenten zur Verbesserung deiner Workflows.",
 			"description": "Die Agenten arbeiten zusammen in der Cloud und können vom Web oder über Slack ausgelöst werden.",
 			"tryButton": "Probiere Cloud-Agenten aus"
-		},
-		"careers": "Außerdem, <careersLink>wir stellen ein!</careersLink>"
+		}
 	},
 	"costs": {
 		"totalWithSubtasks": "Gesamtkosten (inkl. Unteraufgaben): ${{cost}}",
 		"total": "Gesamtkosten: ${{cost}}",
 		"includesSubtasks": "Enthält Kosten für Unteraufgaben"
-	},
-	"browser": {
-		"session": "Browser-Sitzung",
-		"active": "Aktiv",
-		"rooWantsToUse": "Roo möchte den Browser verwenden",
-		"consoleLogs": "Konsolenprotokolle",
-		"noNewLogs": "(Keine neuen Protokolle)",
-		"screenshot": "Browser-Screenshot",
-		"cursor": "Cursor",
-		"navigation": {
-			"step": "Schritt {{current}} von {{total}}",
-			"previous": "Zurück",
-			"next": "Weiter"
-		},
-		"sessionStarted": "Browser-Sitzung gestartet",
-		"actions": {
-			"title": "Browser-Aktion: ",
-			"launched": "Browser gestartet",
-			"launch": "Browser starten auf {{url}}",
-			"clicked": "Geklickt auf: {{coordinate}}",
-			"click": "Klicken ({{coordinate}})",
-			"typed": "Eingegeben: {{text}}",
-			"type": "Eingeben \"{{text}}\"",
-			"pressed": "{{key}} gedrückt",
-			"press": "{{key}} drücken",
-			"scrolledDown": "Nach unten gescrollt",
-			"scrollDown": "Nach unten scrollen",
-			"scrolledUp": "Nach oben gescrollt",
-			"scrollUp": "Nach oben scrollen",
-			"hovered": "Gehovered auf: {{coordinate}}",
-			"hover": "Hover ({{coordinate}})",
-			"resized": "Größe geändert auf: {{size}}",
-			"resize": "Größe ändern auf {{size}}",
-			"screenshotSaved": "Screenshot gespeichert",
-			"screenshot": "Screenshot speichern unter {{path}}",
-			"closed": "Browser geschlossen",
-			"close": "Browser schließen"
-		}
 	},
 	"codeblock": {
 		"tooltips": {
@@ -407,7 +373,6 @@
 			"copy_code": "Code kopieren"
 		}
 	},
-	"systemPromptWarning": "WARNUNG: Benutzerdefinierte Systemaufforderung aktiv. Dies kann die Funktionalität erheblich beeinträchtigen und zu unvorhersehbarem Verhalten führen.",
 	"profileViolationWarning": "Das aktuelle Profil ist nicht kompatibel mit den Einstellungen deiner Organisation",
 	"shellIntegration": {
 		"title": "Befehlsausführungswarnung",
@@ -441,12 +406,29 @@
 			"title": "Alle ablehnen"
 		}
 	},
+	"list-batch": {
+		"approve": {
+			"title": "Alle genehmigen"
+		},
+		"deny": {
+			"title": "Alle ablehnen"
+		}
+	},
+	"edit-batch": {
+		"approve": {
+			"title": "Alle speichern"
+		},
+		"deny": {
+			"title": "Alle ablehnen"
+		}
+	},
 	"indexingStatus": {
 		"ready": "Index bereit",
 		"indexing": "Indizierung {{percentage}}%",
 		"indexed": "Indiziert",
 		"error": "Index-Fehler",
-		"status": "Index-Status"
+		"status": "Index-Status",
+		"stopping": "Indexierung wird gestoppt..."
 	},
 	"versionIndicator": {
 		"ariaLabel": "Version {{version}} - Klicken Sie, um die Versionshinweise anzuzeigen"
@@ -514,5 +496,10 @@
 	},
 	"readCommandOutput": {
 		"title": "Roo las Befehlsausgabe"
+	},
+	"retiredProvider": {
+		"title": "Anbieter wird nicht mehr unterstützt",
+		"message": "Leider wird dieser Anbieter nicht mehr unterstützt. Wir haben festgestellt, dass nur sehr wenige Roo-Nutzer ihn tatsächlich verwendet haben, und wir müssen den Umfang unserer Codebasis reduzieren, damit wir weiterhin schnell liefern und unserer Community in diesem Bereich gut dienen können. Es war eine wirklich schwere Entscheidung, aber sie ermöglicht uns, uns auf das zu konzentrieren, was dir am wichtigsten ist. Es ist ärgerlich, das wissen wir.",
+		"openSettings": "Einstellungen öffnen"
 	}
 }

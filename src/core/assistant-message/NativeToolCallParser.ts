@@ -459,6 +459,7 @@ export class NativeToolCallParser {
 					nativeArgs = {
 						command: partialArgs.command,
 						cwd: partialArgs.cwd,
+						timeout: partialArgs.timeout,
 					}
 				}
 				break
@@ -486,19 +487,6 @@ export class NativeToolCallParser {
 					nativeArgs = {
 						path: partialArgs.path,
 						diff: partialArgs.diff,
-					}
-				}
-				break
-
-			case "browser_action":
-				if (partialArgs.action !== undefined) {
-					nativeArgs = {
-						action: partialArgs.action,
-						url: partialArgs.url,
-						coordinate: partialArgs.coordinate,
-						size: partialArgs.size,
-						text: partialArgs.text,
-						path: partialArgs.path,
 					}
 				}
 				break
@@ -599,11 +587,18 @@ export class NativeToolCallParser {
 				}
 				break
 
+			case "edit":
 			case "search_and_replace":
-				if (partialArgs.path !== undefined || partialArgs.operations !== undefined) {
+				if (
+					partialArgs.file_path !== undefined ||
+					partialArgs.old_string !== undefined ||
+					partialArgs.new_string !== undefined
+				) {
 					nativeArgs = {
-						path: partialArgs.path,
-						operations: partialArgs.operations,
+						file_path: partialArgs.file_path,
+						old_string: partialArgs.old_string,
+						new_string: partialArgs.new_string,
+						replace_all: this.coerceOptionalBoolean(partialArgs.replace_all),
 					}
 				}
 				break
@@ -793,6 +788,7 @@ export class NativeToolCallParser {
 						nativeArgs = {
 							command: args.command,
 							cwd: args.cwd,
+							timeout: args.timeout,
 						} as NativeArgsFor<TName>
 					}
 					break
@@ -806,11 +802,18 @@ export class NativeToolCallParser {
 					}
 					break
 
+				case "edit":
 				case "search_and_replace":
-					if (args.path !== undefined && args.operations !== undefined && Array.isArray(args.operations)) {
+					if (
+						args.file_path !== undefined &&
+						args.old_string !== undefined &&
+						args.new_string !== undefined
+					) {
 						nativeArgs = {
-							path: args.path,
-							operations: args.operations,
+							file_path: args.file_path,
+							old_string: args.old_string,
+							new_string: args.new_string,
+							replace_all: this.coerceOptionalBoolean(args.replace_all),
 						} as NativeArgsFor<TName>
 					}
 					break
@@ -820,19 +823,6 @@ export class NativeToolCallParser {
 						nativeArgs = {
 							question: args.question,
 							follow_up: args.follow_up,
-						} as NativeArgsFor<TName>
-					}
-					break
-
-				case "browser_action":
-					if (args.action !== undefined) {
-						nativeArgs = {
-							action: args.action,
-							url: args.url,
-							coordinate: args.coordinate,
-							size: args.size,
-							text: args.text,
-							path: args.path,
 						} as NativeArgsFor<TName>
 					}
 					break
